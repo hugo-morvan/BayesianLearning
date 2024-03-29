@@ -8,22 +8,94 @@ date: "`r Sys.Date()`"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# Bayesian Learning
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# Computer Lab 1
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## 1. Daniel Bernoulli
 
-```{r cars}
-summary(cars)
+Let $y_1, ..., y_n| \theta \sim Bern(\theta)$, and assume that you have obtained a sample with s = 22 successes in n = 70 trials. Assume a Beta($\alpha_0$, $\beta_0$) prior for $\theta$ and let $\alpha_0$ = $\beta_0$ = 8.
+
+### 1.a
+
+Draw 10000 random values (nDraws = 10000) from the posterior $\theta|y \sim Beta(\alpha_0+s, \beta_0 + f)$, where $y = (y_1, . . . , y_n)$, and verify graphically that the posterior mean $E[\theta|y]$ and standard deviation $SD [\theta|y]$ converges to the true values as the number of random draws grows large. 
+[Hint: use rbeta() to draw random values and make graphs of the sample means and standard deviations of $\theta$ as a function of the accumulating number of drawn values].
+
+```{r 1.a}
+
 ```
 
-## Including Plots
+### 1.b
 
-You can also embed plots, for example:
+Draw 10000 random values from the posterior to compute the posterior probability $Pr(\theta > 0.3|y)$ and compare with the exact value from the Beta posterior. [Hint: use pbeta()]
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r 1.b}
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### 1.c
+
+Draw 10000 random values from the posterior of the odds $\phi = \frac{\theta}{1 - \theta}$
+by using the previous random draws from the Beta posterior for $\theta$ and plot the posterior
+distribution of $\phi$. [Hint: hist() and density() can be utilized].
+
+
+```{r 1.c}
+
+```
+
+## 2. Log-normal distribution and Gini coefficient
+
+Assume that you have asked 8 randomly selected persons about their monthly income (in thousands Swedish Krona) and obtained the following eight observations: 33, 24, 48, 32, 55, 74, 23, and 17. A common model for non-negative continuous variables is the log-normal distribution. The log-normal distribution $log N (\mu, \sigma^2)$ has density function $$p(y|\mu, \sigma^2) = \frac{1}{y*\sqrt{2\pi\sigma^2}}exp[-\frac{1}{2\sigma^2}(\log y - \mu)^2]$$, where y > 0, $-\infty < \mu < \infty$ and $\sigma^2 > 0$. The log-normal distribution is related to the normal distribution as follows: if $y \sim log N (\mu, \sigma^2)$ then $log y \sim N (\mu, \sigma^2)$. Let $y_1, ..., y_n|\mu$, $\sigma^2 iid\sim log N (\mu, \sigma^2 )$, where $\mu = 3.6$ is assumed to be known but $\sigma^2$ is unknown with non-informative prior $p(\sigma^2) \propto 1/\sigma^2$ . The posterior for $\sigma^2$ is the $Inv - \chi^2 (n, \tau^2 )$ distribution, where $\tau^2 = \frac{\sum_{i=1}^n(\log y_i - \mu)^2}{n}$ .
+
+### 2.a
+
+Draw 10000 random values from the posterior of $\sigma^2$ by assuming $\mu = 3.6$ and plot the posterior distribution.
+
+```{r 2.a}
+
+```
+
+### 2.b
+
+The most common measure of income inequality is the Gini coefficient, G, where $0 \leq G \leq 1$. G = 0 means a completely equal income distribution, whereas G = 1 means complete income inequality (see e.g. Wikipedia for more information about the Gini coefficient). It can be shown that $G = 2\Phi(\sigma / \sqrt2)-1$ when incomes follow a $log N(\mu, \sigma^2)$ distribution. $\Phi(z)$ is the cumulative distribution function function (CDF) for the standard normal distribution with mean zero and unit variance. Use the posterior draws in a) to compute the posterior distributiuon of the Gini coefficient G for the current data set.
+
+```{r 2.b}
+
+```
+
+### 2.c
+
+Use the posterior draws from b) to compute a 95% equal tail credible interval for G. A 95% equal tail credible interval (a, b) cuts off 2.5% percent of the posterior probability mass to the left of a, and 2.5% to the right of b.
+
+```{r 2.c}
+
+```
+
+### 2.d
+
+Use the posterior draws from b) to compute a 95% Highest Posterior Density Interval (HPDI) for G. Compare the two intervals in (c) and (d). [Hint: do a kernel density estimate of the posterior of G using the density function in R with default settings, and use that kernel density estimate to compute the HPDI. Note that you need to order/sort the estimated density values to obtain the HPDI.].
+
+```{r 2.d}
+
+```
+
+## 3. Bayesian inference for the concentration parameter in the von Mises distribution
+
+This exercise is concerned with directional data. The point is to show you that the posterior distribution for somewhat weird models can be obtained by plotting it over a grid of values. The data points are observed wind directions at a given location on ten different days. The data are recorded in degrees:$$(20, 314, 285, 40, 308, 314, 299, 296, 303, 326)$$, where North is located at zero degrees (see Figure 1 on the next page, where the angles are measured clockwise). To fit with Wikipedia's description of probability distributions for circular data we convert the data into radians $-\pi \leq y \leq \pi$. The 10 observations in radians are $$(-2.79, 2.33, 1.83, -2.44, 2.23, 2.33, 2.07, 2.02, 2.14, 2.54)$$. Assume that these data points conditional on $(\mu, \kappa)$ are independent observations from the following von Mises distribution: $$p(y|\mu, \kappa) = \frac{exp [\kappa · cos(y - \mu)]}{2\pi I_0(\kappa)}, -\pi\leq y\leq\pi,$$ where $I0(\kappa)$ is the modified Bessel function of the first kind of order zero [see ?besselI in R]. The parameter $\mu (-\pi\leq \mu\leq\pi)$ is the mean direction and $\kappa > 0$ is called the concentration parameter. Large $\kappa$ gives a small variance around $\mu$, and vice versa. Assume that $\mu$ is known to be 2.4. Let $\kappa \sim Exponential(\lambda = 0.5)$ a priori, where $\lambda$ is the rate parameter of the exponential distribution (so that the mean is $1/\lambda$).
+
+### 3.a
+
+Derive the expression for what the posterior $p(\kappa|y, \mu)$ is proportional to. Hence, derive the function $f(\kappa)$ such that $p(\kappa|y, \mu) \propto f(\kappa)$. Then, plot the posterior distribution of $\kappa$ for the wind direction data over a fine grid of $\kappa$ values. [Hint: you need to normalize the posterior distribution of $\kappa$ so that it integrates to one.]
+
+```{r 3.a}
+
+```
+
+### 3.b
+
+Find the (approximate) posterior mode of $\kappa$ from the information in a).
+
+```{r 3.b}
+
+```
