@@ -38,15 +38,15 @@ post_alpha <- alpha_0 + s
 post_beta <- beta_0 + f
 
 # rbeta drawing
-samples <- rbeta(nDraws, post_alpha, post_beta)
+delta <- rbeta(nDraws, post_alpha, post_beta)
 
 # true values of mean and sd
 mean_true <- post_alpha/(post_alpha + post_beta)
 sd_true <- sqrt((post_alpha*post_beta)/((post_alpha+post_beta+1)*(post_alpha+post_beta)^2))
 
 # sample means based on accumulating number of drawn values
-cumu_mean <- cumsum(samples)/(1:nDraws)
-cumu_sd <- sqrt(cumsum((samples - cumu_mean)^2) / (1:nDraws))
+cumu_mean <- cumsum(delta)/(1:nDraws)
+cumu_sd <- sqrt(cumsum((delta - cumu_mean)^2) / (1:nDraws))
 
 plot_data <- data.frame(
   Draw = 1:nDraws,
@@ -55,7 +55,7 @@ plot_data <- data.frame(
 )
 
 # Mean plot
-ggplot(plot_data, aes(x = Draw)) +
+cumulativeMeans_plot <- ggplot(plot_data, aes(x = Draw)) +
   geom_line(aes(y = Mean), color = "blue") +
   # true mean line
   geom_hline(yintercept = mean_true, color = "red", linetype = "dashed") +
@@ -64,7 +64,7 @@ ggplot(plot_data, aes(x = Draw)) +
   ylab("Cumulative Means")
 
 # SD plot
-ggplot(plot_data, aes(x = Draw)) +
+cumulativeSD_plot <- ggplot(plot_data, aes(x = Draw)) +
   geom_line(aes(y = SD), color = "red") +
   # true standard deviation line
   geom_hline(yintercept = sd_true, color = "blue", linetype = "dashed") +
@@ -72,6 +72,8 @@ ggplot(plot_data, aes(x = Draw)) +
   xlab("Accumulating number of Draws") +
   ylab("Cumulative Standard Deviation")
 
+cumulativeMeans_plot
+cumulativeSD_plot
 ```
 
 
@@ -81,6 +83,14 @@ Draw 10000 random values from the posterior to compute the posterior probability
 
 ```{r 1.b}
 
+# posterior probability:
+p_post <- mean(delta > 0.3)
+
+# beta posterior probability:
+p_beta_post <- 1-(pbeta(0.3, post_alpha, post_beta))
+
+p_post
+p_beta_post
 ```
 
 ### 1.c
@@ -91,6 +101,12 @@ distribution of $\phi$. [Hint: hist() and density() can be utilized].
 
 
 ```{r 1.c}
+phi <- delta/(1-delta)
+
+postDistribution_plot <- hist(phi, breaks=10, col="red", prob=TRUE, xlab="phi",
+   main="Posterior distribution of the odds phi")
+
+postDistribution_plot
 
 ```
 
