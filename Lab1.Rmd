@@ -22,6 +22,24 @@ Let $y_1, ..., y_n| \theta \sim Bern(\theta)$, and assume that you have obtained
 Draw 10000 random values (nDraws = 10000) from the posterior $\theta|y \sim Beta(\alpha_0+s, \beta_0 + f)$, where $y = (y_1, . . . , y_n)$, and verify graphically that the posterior mean $E[\theta|y]$ and standard deviation $SD [\theta|y]$ converges to the true values as the number of random draws grows large. 
 [Hint: use rbeta() to draw random values and make graphs of the sample means and standard deviations of $\theta$ as a function of the accumulating number of drawn values].
 
+```{r}
+s <- 22
+n <- 70
+f <- n-s
+nDraws <- 100000
+alpha_0 <- 8
+beta_0 <- 8
+
+post_alpha <- alpha_0 + s
+post_beta <- beta_0 + f
+
+# rbeta drawing
+samples <- rbeta(nDraws, post_alpha, post_beta)
+mean_true <- post_alpha/(post_alpha + post_beta)
+sd_true <- sqrt((post_alpha*post_beta)/((post_alpha+post_beta+1)*(post_alpha+post_beta)^2))
+```
+
+
 ### 1.b
 
 Draw 10000 random values from the posterior to compute the posterior probability $Pr(\theta > 0.3|y)$ and compare with the exact value from the Beta posterior. [Hint: use pbeta()]
