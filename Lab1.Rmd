@@ -13,6 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Computer Lab 1
 
+``` {r}
+library(ggplot2)
+```
+
 ## 1. Daniel Bernoulli
 
 Let $y_1, ..., y_n| \theta \sim Bern(\theta)$, and assume that you have obtained a sample with s = 22 successes in n = 70 trials. Assume a Beta($\alpha_0$, $\beta_0$) prior for $\theta$ and let $\alpha_0$ = $\beta_0$ = 8.
@@ -22,7 +26,7 @@ Let $y_1, ..., y_n| \theta \sim Bern(\theta)$, and assume that you have obtained
 Draw 10000 random values (nDraws = 10000) from the posterior $\theta|y \sim Beta(\alpha_0+s, \beta_0 + f)$, where $y = (y_1, . . . , y_n)$, and verify graphically that the posterior mean $E[\theta|y]$ and standard deviation $SD [\theta|y]$ converges to the true values as the number of random draws grows large. 
 [Hint: use rbeta() to draw random values and make graphs of the sample means and standard deviations of $\theta$ as a function of the accumulating number of drawn values].
 
-```{r}
+```{r 1.a}
 s <- 22
 n <- 70
 f <- n-s
@@ -35,8 +39,39 @@ post_beta <- beta_0 + f
 
 # rbeta drawing
 samples <- rbeta(nDraws, post_alpha, post_beta)
+
+# true values of mean and sd
 mean_true <- post_alpha/(post_alpha + post_beta)
 sd_true <- sqrt((post_alpha*post_beta)/((post_alpha+post_beta+1)*(post_alpha+post_beta)^2))
+
+# sample means based on accumulating number of drawn values
+cumu_mean <- cumsum(samples)/(1:nDraws)
+cumu_sd <- sqrt(cumsum((samples - cumu_mean)^2) / (1:nDraws))
+
+plot_data <- data.frame(
+  Draw = 1:nDraws,
+  Mean = cumu_mean,
+  SD = cumu_sd
+)
+
+# Mean plot
+ggplot(plot_data, aes(x = Draw)) +
+  geom_line(aes(y = Mean), color = "blue") +
+  # true mean line
+  geom_hline(yintercept = mean_true, color = "red", linetype = "dashed") +
+  ggtitle("Cumulative Means of accumulating Draws") +
+  xlab("Accumulating number of Draws") +
+  ylab("Cumulative Means")
+
+# SD plot
+ggplot(plot_data, aes(x = Draw)) +
+  geom_line(aes(y = SD), color = "red") +
+  # true standard deviation line
+  geom_hline(yintercept = sd_true, color = "blue", linetype = "dashed") +
+  ggtitle("Cumulative Standard Deviations of accumulating Draws") +
+  xlab("Accumulating number of Draws") +
+  ylab("Cumulative Standard Deviation")
+
 ```
 
 
