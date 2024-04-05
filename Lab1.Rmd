@@ -31,7 +31,7 @@ Draw 10000 random values (nDraws = 10000) from the posterior $\theta|y \sim Beta
 s <- 22
 n <- 70
 f <- n-s
-nDraws <- 100000
+nDraws <- 10000
 alpha_0 <- 8
 beta_0 <- 8
 
@@ -104,10 +104,8 @@ distribution of $\phi$. [Hint: hist() and density() can be utilized].
 ```{r 1.c}
 phi <- delta/(1-delta)
 
-postDistribution_plot <- hist(phi, breaks=10, col="red", prob=TRUE, xlab="phi",
-   main="Posterior distribution of the odds phi")
+hist(phi, breaks=100, prob=TRUE, xlab="phi", main=expression(paste("Posterior distribution of the odds ", Phi)))
 
-postDistribution_plot
 
 ```
 
@@ -129,20 +127,22 @@ tau_sq = (sum((log(Y)-mu)^2))/n
 
 sigsq_draws = 1 / rchisq(10000, df)
 
-hist(sigsq_draws, prob=TRUE, xlab = expression(sigma^2), main=expression(paste("Posterior distribution for ", sigma^2)), breaks = 100)
+hist(sigsq_draws, prob=TRUE, xlab = expression(sigma^2),
+     main=expression(paste("Posterior distribution for ", sigma^2)), 
+     breaks = 50)
 
 ```
 
 ### 2.b
 
+
 The most common measure of income inequality is the Gini coefficient, G, where $0 \leq G \leq 1$. G = 0 means a completely equal income distribution, whereas G = 1 means complete income inequality (see e.g. Wikipedia for more information about the Gini coefficient). It can be shown that $G = 2\Phi(\sigma / \sqrt2)-1$ when incomes follow a $log N(\mu, \sigma^2)$ distribution. $\Phi(z)$ is the cumulative distribution function function (CDF) for the standard normal distribution with mean zero and unit variance. Use the posterior draws in a) to compute the posterior distributiuon of the Gini coefficient G for the current data set.
 
 ```{r 2.b}
 
-
 Gs = 2*pnorm((sqrt(sigsq_draws)/sqrt(2))) - 1
 
-hist(Gs, main = "Posterior distribution of G", breaks = 100 )
+hist(Gs, main = "Posterior distribution of G", breaks = 50 )
 
 ```
 
@@ -151,16 +151,17 @@ hist(Gs, main = "Posterior distribution of G", breaks = 100 )
 Use the posterior draws from b) to compute a 95% equal tail credible interval for G. A 95% equal tail credible interval (a, b) cuts off 2.5% percent of the posterior probability mass to the left of a, and 2.5% to the right of b.
 
 ```{r 2.c}
-print(quantile(Gs, probs = c(0.025, 0.975)))
-
 sortedGs = sort(Gs)
 G250 = sortedGs[250]
 G9750 = sortedGs[9750]
 
-hist(Gs, main = "Posterior distribution of G", breaks = 100 )
+hist(Gs, main = "Posterior distribution of G", breaks = 50 )
 abline(v = G250, col = "red", lwd=2)
 abline(v = G9750, col= "red", lwd=2)
+legend("topright", inset=.02, legend=c("95% Equal Tail Cred. Int."), col=c("red"), lty=1)
 ```
+
+The 95% equal tail credible interval is [`r G250`, `r G9750`], marked by the red vertical lines on the plot above.
 
 ### 2.d
 
@@ -171,11 +172,7 @@ kernel_estimate = density(Gs)
 x = kernel_estimate$x
 y = kernel_estimate$y
 
-#sort based on y
-
 y_sorted = sort(y)
-
-plot(kernel_estimate)
 
 y_val = 7.0
 box_width = (max(kernel_estimate$x)-min(kernel_estimate$x))/512
@@ -190,45 +187,55 @@ print(x_left_bound)
 x_right_bound = max(kernel_estimate$x[kernel_estimate$y >= y_val])
 print(x_right_bound)
   
-plot(kernel_estimate)
+plot(kernel_estimate, main = "Posterior distribution of G", xlab = "Gs")
 abline(v=x_left_bound, col = "blue", lwd=2)
 abline(v=x_right_bound, col = "blue", lwd=2)
 abline(v = G250, col = "red", lwd=1)
 abline(v = G9750, col= "red", lwd=1)
+legend("topright", inset=.02, legend=c("95% Equal Tail Cred. Int.", "95% HPDI"), col=c("red", "blue"), lty=c(1,1))
 ```
+
+The 95% Highest Posterior Density Interval is [`r x_left_bound`, `r x_right_bound`], marked by the blue vertical lines on the plot above. It is shifted to the left compared to the 95% equal tail credible interval, which makes sense since the posterior distribution is skewed right.
 
 ## 3. Bayesian inference for the concentration parameter in the von Mises distribution
 
 This exercise is concerned with directional data. The point is to show you that the posterior distribution for somewhat weird models can be obtained by plotting it over a grid of values. The data points are observed wind directions at a given location on ten different days. 
 The data are recorded in degrees:$$(20, 314, 285, 40, 308, 314, 299, 296, 303, 326)$$, where North is located at zero degrees (see Figure 1 on the next page, where the angles are measured clockwise). To fit with Wikipedia's description of probability distributions for circular data we convert the data into radians $-\pi \leq y \leq \pi$. The 10 observations in radians are $$(-2.79, 2.33, 1.83, -2.44, 2.23, 2.33, 2.07, 2.02, 2.14, 2.54)$$. 
-Assume that these data points conditional on $(\mu, \kappa)$ are independent observations from the following von Mises distribution: $$p(y|\mu, \kappa) = \frac{exp [\kappa · cos(y - \mu)]}{2\pi I_0(\kappa)}, -\pi\leq y\leq\pi,$$ where $I0(\kappa)$ is the modified Bessel function of the first kind of order zero [see ?besselI in R]. The parameter $\mu (-\pi\leq \mu\leq\pi)$ is the mean direction and $\kappa > 0$ is called the concentration parameter. Large $\kappa$ gives a small variance around $\mu$, and vice versa. Assume that $\mu$ is known to be 2.4. Let $\kappa \sim Exponential(\lambda = 0.5)$ a priori, where $\lambda$ is the rate parameter of the exponential distribution (so that the mean is $1/\lambda$).
+Assume that these data points conditional on $(\mu, \kappa)$ are independent observations from the following von Mises distribution: $$p(y|\mu, \kappa) = \frac{exp [\kappa * cos(y - \mu)]}{2\pi I_0(\kappa)}, -\pi\leq y\leq\pi,$$ where $I_0(\kappa)$ is the modified Bessel function of the first kind of order zero [see ?besselI in R]. The parameter $\mu (-\pi\leq \mu\leq\pi)$ is the mean direction and $\kappa > 0$ is called the concentration parameter. Large $\kappa$ gives a small variance around $\mu$, and vice versa. Assume that $\mu$ is known to be 2.4. Let $\kappa \sim Exponential(\lambda = 0.5)$ a priori, where $\lambda$ is the rate parameter of the exponential distribution (so that the mean is $1/\lambda$).
 
 ### 3.a
 
 Derive the expression for what the posterior $p(\kappa|y, \mu)$ is proportional to. Hence, derive the function $f(\kappa)$ such that $p(\kappa|y, \mu) \propto f(\kappa)$. Then, plot the posterior distribution of $\kappa$ for the wind direction data over a fine grid of $\kappa$ values. [Hint: you need to normalize the posterior distribution of $\kappa$ so that it integrates to one.]
 
+To find the posterior distribution, we first need to find the Likelihood:
+$$L = \prod_{i=1}^n \frac{\exp(\kappa*\cos(y_i-\mu))}{2 \pi I_0(\kappa)} = \frac{\exp(\sum_{i=1}^n \kappa*\cos(y_i-\mu))}{(2\pi I_0(\kappa))^n}$$
+hence:
+$$p(\kappa |y, \mu) \propto L * p(\kappa) = \frac{\exp(\sum_{i=1}^n \kappa*\cos(y_i-\mu))}{(2\pi I_0(\kappa))^n} * \frac{1}{2}\exp(-\kappa/2)$$
+which can be simplified to :
+
+$$p(\kappa |y, \mu) \propto f(\kappa)=\frac{\exp(\kappa*\sum_{i=1}^n \cos(y_i-\mu)-\kappa/2)}{(I_0(\kappa))^n}$$
+
 ```{r 3.a}
 obs = c(-2.79, 2.33, 1.83, -2.44, 2.23, 2.33, 2.07, 2.02, 2.14, 2.54)
 n = length(obs)
-
 mu = 2.4
 
-minimum = 0 #adjust later
-maximum = 10 #adjust later
-
+minimum = 0
+maximum = 10
 delta = 0.01
 kappaGrid <- seq(minimum, maximum, by = delta)
 
-
-f <- function(kappa, mu, y){
+posterior_func <- function(kappa, mu, y){
   n = length(y)
   (exp(kappa * sum(cos(y - mu))) - kappa/2)/(besselI(kappa, nu = 0))^n
 }
-posterior = f(kappaGrid, mu, obs)
+posterior = posterior_func(kappaGrid, mu, obs)
 #normalizing:
 posterior = posterior/(sum(posterior)*delta)
 
-plot(posterior ~ kappaGrid, pch = 20)
+plot(posterior ~ kappaGrid, pch = 20, 
+     main = expression(paste("Posterior distribution of ", kappa, " for the wind direction data")), 
+     xlab=expression(kappa), ylab = "density")
 ```
 
 ### 3.b
@@ -238,7 +245,11 @@ Find the (approximate) posterior mode of $\kappa$ from the information in a).
 ```{r 3.b}
 idx_mode = which.max(posterior)
 post_mode = kappaGrid[idx_mode]
-print(post_mode)
-plot(posterior ~ kappaGrid, pch = 20, xlab = expression(kappa), main = paste("Posterior distribution of K with mode = ", post_mode))
+
+plot(posterior ~ kappaGrid, pch = 20, 
+     xlab = expression(kappa), main = expression(paste("Posterior distribution of ", kappa)))
 abline(v = post_mode, col = "red", lwd=2)
+legend("topright", inset=.02, legend=paste0("Posterior mode = ", post_mode), col=c("red"), lty=1)
 ```
+
+The posterior mode can be approximated by finding the point kappa with the highest density. The posterior mode is approximated to be `r post_mode`, visualized by the red vertical line on the plot.
