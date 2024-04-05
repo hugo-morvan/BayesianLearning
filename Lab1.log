@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2024.3.9)  3 APR 2024 15:25
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) (preloaded format=pdflatex 2024.3.9)  5 APR 2024 10:19
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -482,7 +482,18 @@ File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 
 LaTeX Warning: Command \textperiodcentered invalid in math mode on input line 482.
 
-[10] (./Lab1.aux)
+<Lab1_files/figure-latex/3.a-1.pdf, id=175, 469.755pt x 325.215pt>
+File: Lab1_files/figure-latex/3.a-1.pdf Graphic file (type pdf)
+<use Lab1_files/figure-latex/3.a-1.pdf>
+Package pdftex.def Info: Lab1_files/figure-latex/3.a-1.pdf  used on input line 528.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+[10]
+<Lab1_files/figure-latex/3.b-1.pdf, id=181, 469.755pt x 325.215pt>
+File: Lab1_files/figure-latex/3.b-1.pdf Graphic file (type pdf)
+<use Lab1_files/figure-latex/3.b-1.pdf>
+Package pdftex.def Info: Lab1_files/figure-latex/3.b-1.pdf  used on input line 555.
+(pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
+[11 <./Lab1_files/figure-latex/3.a-1.pdf>] [12 <./Lab1_files/figure-latex/3.b-1.pdf>] (./Lab1.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-02-20>
@@ -491,18 +502,18 @@ Package rerunfilecheck Info: File `Lab1.out' has not changed.
 (rerunfilecheck)             Checksum: 957AD8834F4A4750AEC3FFCAFEAED5BB;1846.
  ) 
 Here is how much of TeX's memory you used:
- 11314 strings out of 476076
- 172637 string characters out of 5793238
+ 11330 strings out of 476076
+ 173257 string characters out of 5793238
  1940187 words of memory out of 5000000
- 33206 multiletter control sequences out of 15000+600000
+ 33220 multiletter control sequences out of 15000+600000
  605438 words of font info for 79 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  75i,6n,79p,545b,587s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmex10.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmmi10.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmmi5.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmmi7.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmr10.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmr12.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmr17.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmr5.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmr7.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmsy7.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmtk10.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmtt10.pfb></home/h/.TinyTeX/texmf-dist/fonts/type1/public/lm/lmtti10.pfb>
-Output written on Lab1.pdf (10 pages, 612841 bytes).
+Output written on Lab1.pdf (12 pages, 731101 bytes).
 PDF statistics:
- 268 PDF objects out of 1000 (max. 8388607)
- 206 compressed objects within 3 object streams
- 39 named destinations out of 1000 (max. 500000)
- 148 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 290 PDF objects out of 1000 (max. 8388607)
+ 222 compressed objects within 3 object streams
+ 41 named destinations out of 1000 (max. 500000)
+ 158 words of extra memory for PDF output out of 10000 (max. 10000000)
 

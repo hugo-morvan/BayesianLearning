@@ -129,7 +129,7 @@ tau_sq = (sum((log(Y)-mu)^2))/n
 
 sigsq_draws = 1 / rchisq(10000, df)
 
-hist(sigsq_draws, prob=TRUE, xlab = "sigma^2", main="Posterior distribution for sigma^2", breaks = 100)
+hist(sigsq_draws, prob=TRUE, xlab = expression(sigma^2), main=expression(paste("Posterior distribution for ", sigma^2)), breaks = 100)
 
 ```
 
@@ -199,14 +199,36 @@ abline(v = G9750, col= "red", lwd=1)
 
 ## 3. Bayesian inference for the concentration parameter in the von Mises distribution
 
-This exercise is concerned with directional data. The point is to show you that the posterior distribution for somewhat weird models can be obtained by plotting it over a grid of values. The data points are observed wind directions at a given location on ten different days. The data are recorded in degrees:$$(20, 314, 285, 40, 308, 314, 299, 296, 303, 326)$$, where North is located at zero degrees (see Figure 1 on the next page, where the angles are measured clockwise). To fit with Wikipedia's description of probability distributions for circular data we convert the data into radians $-\pi \leq y \leq \pi$. The 10 observations in radians are $$(-2.79, 2.33, 1.83, -2.44, 2.23, 2.33, 2.07, 2.02, 2.14, 2.54)$$. Assume that these data points conditional on $(\mu, \kappa)$ are independent observations from the following von Mises distribution: $$p(y|\mu, \kappa) = \frac{exp [\kappa · cos(y - \mu)]}{2\pi I_0(\kappa)}, -\pi\leq y\leq\pi,$$ where $I0(\kappa)$ is the modified Bessel function of the first kind of order zero [see ?besselI in R]. The parameter $\mu (-\pi\leq \mu\leq\pi)$ is the mean direction and $\kappa > 0$ is called the concentration parameter. Large $\kappa$ gives a small variance around $\mu$, and vice versa. Assume that $\mu$ is known to be 2.4. Let $\kappa \sim Exponential(\lambda = 0.5)$ a priori, where $\lambda$ is the rate parameter of the exponential distribution (so that the mean is $1/\lambda$).
+This exercise is concerned with directional data. The point is to show you that the posterior distribution for somewhat weird models can be obtained by plotting it over a grid of values. The data points are observed wind directions at a given location on ten different days. 
+The data are recorded in degrees:$$(20, 314, 285, 40, 308, 314, 299, 296, 303, 326)$$, where North is located at zero degrees (see Figure 1 on the next page, where the angles are measured clockwise). To fit with Wikipedia's description of probability distributions for circular data we convert the data into radians $-\pi \leq y \leq \pi$. The 10 observations in radians are $$(-2.79, 2.33, 1.83, -2.44, 2.23, 2.33, 2.07, 2.02, 2.14, 2.54)$$. 
+Assume that these data points conditional on $(\mu, \kappa)$ are independent observations from the following von Mises distribution: $$p(y|\mu, \kappa) = \frac{exp [\kappa · cos(y - \mu)]}{2\pi I_0(\kappa)}, -\pi\leq y\leq\pi,$$ where $I0(\kappa)$ is the modified Bessel function of the first kind of order zero [see ?besselI in R]. The parameter $\mu (-\pi\leq \mu\leq\pi)$ is the mean direction and $\kappa > 0$ is called the concentration parameter. Large $\kappa$ gives a small variance around $\mu$, and vice versa. Assume that $\mu$ is known to be 2.4. Let $\kappa \sim Exponential(\lambda = 0.5)$ a priori, where $\lambda$ is the rate parameter of the exponential distribution (so that the mean is $1/\lambda$).
 
 ### 3.a
 
 Derive the expression for what the posterior $p(\kappa|y, \mu)$ is proportional to. Hence, derive the function $f(\kappa)$ such that $p(\kappa|y, \mu) \propto f(\kappa)$. Then, plot the posterior distribution of $\kappa$ for the wind direction data over a fine grid of $\kappa$ values. [Hint: you need to normalize the posterior distribution of $\kappa$ so that it integrates to one.]
 
 ```{r 3.a}
+obs = c(-2.79, 2.33, 1.83, -2.44, 2.23, 2.33, 2.07, 2.02, 2.14, 2.54)
+n = length(obs)
 
+mu = 2.4
+
+minimum = 0 #adjust later
+maximum = 10 #adjust later
+
+delta = 0.01
+kappaGrid <- seq(minimum, maximum, by = delta)
+
+
+f <- function(kappa, mu, y){
+  n = length(y)
+  (exp(kappa * sum(cos(y - mu))) - kappa/2)/(besselI(kappa, nu = 0))^n
+}
+posterior = f(kappaGrid, mu, obs)
+#normalizing:
+posterior = posterior/(sum(posterior)*delta)
+
+plot(posterior ~ kappaGrid, pch = 20)
 ```
 
 ### 3.b
@@ -214,8 +236,9 @@ Derive the expression for what the posterior $p(\kappa|y, \mu)$ is proportional 
 Find the (approximate) posterior mode of $\kappa$ from the information in a).
 
 ```{r 3.b}
-
-```
-
-=======
+idx_mode = which.max(posterior)
+post_mode = kappaGrid[idx_mode]
+print(post_mode)
+plot(posterior ~ kappaGrid, pch = 20, xlab = expression(kappa), main = paste("Posterior distribution of K with mode = ", post_mode))
+abline(v = post_mode, col = "red", lwd=2)
 ```
