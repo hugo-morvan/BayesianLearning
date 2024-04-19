@@ -1,0 +1,276 @@
+---
+title: "Lab 2 Bayesian Learning"
+author: "Hugo Morvan"
+date: "`r Sys.Date()`"
+output: pdf_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Linear and polynomial regression
+
+The dataset Linkoping2022.xlsx contains daily average temperatures (in degree Celcius) in Linköping over the course of the year 2022. Use the function read_xlsx(), which is included in the R package readxl (install.packages("readxl")), to import the dataset in R. The response variable is temp and the covariate time that you need to create yourself is defined by:
+
+$$time = \frac{the\ number\ of\ days\ since\ the\ beginning\ of\ the\ year}{365}$$
+A Bayesian analysis of the following quadratic regression model is to be performed:
+$$temp = \beta_0 + \beta_1 * time + \beta_2*time^2 +\epsilon, \epsilon \overset{\mathrm{iid}}{\sim} N(0, \sigma^2).$$
+
+```{r}
+library(readxl)
+data = as.data.frame(read_xlsx("Linkoping2022.xlsx"))
+#365 obs of 3 variables (name, datetime, temp)
+time = c(0:364)/365
+data$time <- time
+```
+
+### a)
+
+Use the conjugate prior for the linear regression model. The prior hyperparameters $\mu_0$, $\Omega_0$, $\nu_0$ and $\sigma^2$ shall be set to sensible values. Start with $\mu_0 = (0, 100,-100)^T$, $\Omega_0 = 0.01 * I_3$, $\nu_0 = 1$ and $\sigma^2 = 1$. 
+Check if this prior agrees with your prior opinions by simulating draws from the joint prior of all parameters and for every draw compute the regression curve. 
+This gives a collection of regression curves; one for each draw from the prior. 
+Does the collection of curves look reasonable? If not, change the prior hyperparameters until the collection of prior regression curves agrees with your prior beliefs about the regression curve.
+[Hint: R package mvtnorm can be used and your $Inv -\chi^2$ simulator of random draws from Lab 1.]
+
+Conjugate prior for the linear regression:
+
+- Joint prior for $\beta$ and $\sigma^2$ : $\beta|\sigma^2\sim N(\mu_0, \sigma^2\Omega_0^{-1})$ where $\sigma^2\sim Inv-\chi^2(\nu_0, \sigma^2_0)$
+
+- Posterior : $\beta|\sigma^2,y\sim N(\mu_n, \sigma^2\Omega_n^{-1})$ and $\sigma^2|y\sim Inv-\chi^2(\nu_n, \sigma^2_n)$
+
+$\mu_n = (X'X+\Omega_0)^{-1}(X'X\hat\beta+\Omega_0\mu_0)$
+
+$\Omega_n = X'X + \Omega_0$
+
+$\nu_n = \nu_0 + n$
+
+$\nu_n\sigma_n^2 = \nu_0\sigma_0^2 + (y'y+\mu_0'\Omega_0\mu_0-\mu_n'\Omega_n\mu_n)$
+
+```{r 1a}
+library(scales)
+library(mvtnorm)
+# Initializing the parameters
+mu_0 = c(-10,87,-78) #(y intercept, next two have to be balanced. High value -> high arch, vice versa)
+Omega_0 = as.matrix(0.01 * diag(3)) #thickness (higher = thinner)
+nu_0 = 3 #Vertical thickness (higher = thicker)
+sigma_sq_0 = 4 #vertical thickness (higher = thicker)
+n = 365 
+
+X = matrix(c(time*0+1, time, time*time), ncol=3)
+y = data$temp
+
+#Prior
+sigsq_draws_prior = as.matrix((nu_0*sigma_sq_0) / rchisq(1000, n-1))
+beta_draws_prior = matrix(NA,nrow=0, ncol=3)
+for(i in (1:length(sigsq_draws_prior))){
+  sig = sigsq_draws_prior[i]
+  beta_draws_prior = rbind(beta_draws_prior,rmvnorm(n = 1, mean = mu_0, sigma = sig*solve(Omega_0)))
+}
+
+
+#Plot
+f = function(x,betas,sigsq){
+  betas[1] + betas[2]*x + betas[3]*x^2 + rnorm(1, 0, sigsq)
+}
+
+x = time
+betas = beta_draws_prior[1,]
+plot(x, y, type = 'l', xlab="Day of year ratio", ylab = "Temperature")
+for(i in 1:1000){
+  x = time
+  betas = beta_draws_prior[i,]
+  sigsq = sigsq_draws_prior[i,]
+  lines(x, f(x, betas, sigsq), type = 'l', col=alpha('darkred', 0.1))
+}
+
+
+```
+
+
+### b) 
+
+Write a function that simulate draws from the joint posterior distribution of $\beta_0$, $\beta_1$,$\beta_2$ and $\sigma^2$.
+
+```{r}
+#Posterior
+beta_draws_post = matrix(0,nrow=0, ncol=3)
+sigsq_draw_post = matrix(0,nrow=0, ncol=1)
+for(i in 1:1000){
+  beta_hat = beta_draws_prior[i,]
+  mu_n = solve(t(X) %*% X + Omega_0)%*%(t(X) %*% X %*% beta_hat + Omega_0 %*% mu_0)
+  Omega_n = t(X)%*%X + Omega_0
+  nu_n = nu_0 + n
+  nu_n_sig_n = nu_0%*%sigma_sq_0+(t(y)%*%y + t(mu_0)%*%Omega_0%*%mu_0 - t(mu_n)%*%Omega_n%*%mu_n)
+  
+  sig = nu_n_sig_n / rchisq(1, n-1)
+  sigsq_draw_post = rbind(sigsq_draw_post, sig)
+
+  beta_draws_post = rbind(beta_draws_prior,
+                          rmvnorm(n=1,mean=mu_n, sigma = sigsq_draw_post[1,]*solve(Omega_n)))
+}
+```
+
+#### i)
+
+Plot a histogram for each marginal posterior of the parameters.
+
+```{r 1b}
+#plot a histogram for each marginal posterior of the parameters
+hist(beta_draws_post[,1], main="Beta 0", xlab="Value")
+hist(beta_draws_post[,2], main="Beta 1", xlab="Value")
+hist(beta_draws_post[,3], main="Beta 2", xlab="Value")
+hist(sigsq_draw_post, main="Sigma^2", xlab="Value")
+```
+
+#### ii)
+
+Make a scatter plot of the temperature data and overlay a curve for the posterior median of the regression function $f(time) = E[temp|time] = \beta_0 + \beta_1 * time + \beta_2 * time^2$, i.e. the median of f (time) is computed for every value of time. In addition, overlay curves for the 90% equal tail posterior probability intervals of f (time), i.e. the 5 and 95 posterior percentiles of f (time) is computed for every value of time. Does the posterior probability intervals contain most of the data points? Should they?
+
+```{r 1b2}
+#Scatter plot of the temperature data and overlay a curve for the posterior median of the regression function
+plot(time, data$temp, type = 'p', xlab="Day of year ratio", ylab = "Temperature")
+#Mean
+betas_mean = colMeans(beta_draws_post)
+lines(time, betas_mean[1] + betas_mean[2]*time + betas_mean[3]*time^2, type = 'l', col='blue', lwd=2)
+
+#Calculate the 5 and 95 percentiles for each beta for each time
+betas_5 = c(quantile(beta_draws_post[,1], 0.05),
+            quantile(beta_draws_post[,2], 0.05),
+            quantile(beta_draws_post[,3], 0.05))
+
+betas_95 = c(quantile(beta_draws_post[,1], 0.95),
+             quantile(beta_draws_post[,2], 0.95),
+             quantile(beta_draws_post[,3], 0.95))
+
+lines(time, betas_5[1] + betas_5[2]*time + betas_5[3]*time^2, type = 'l', col='red', lty=2, lwd=2)
+lines(time, betas_95[1] + betas_95[2]*time + betas_95[3]*time^2, type = 'l', col='red', lty=2, lwd=2)
+```
+
+### c)
+
+It is of interest to locate the time with the highest expected temperature (i.e. the time where f (time) is maximal). Let's call this value $\tilde x$. Use the simulated draws in (b) to simulate from the posterior distribution of $\tilde x$. [Hint: the regression curve is a quadratic polynomial. Given each posterior draw of $\beta_0$, $\beta_1$ and $\beta_2$ , you can find a simple formula for $\tilde x$.]
+
+```{r 1c}
+max_temp <- function(betas){
+  (-betas[2])/(2*betas[3])
+}
+x_maxs = matrix(0,nrow=0, ncol=1)
+for(i in 1:365){
+  betas = beta_draws_post[i,]
+  x_maxs = rbind(x_maxs, max_temp(betas))
+}
+x_tilde = mean(x_maxs)
+print(paste("x_tilde is",x_tilde))
+plot(time, data$temp, type = 'p', xlab="Day of year ratio", ylab = "Temperature")
+abline(v=x_tilde)
+lines(time, betas_mean[1] + betas_mean[2]*time + betas_mean[3]*time^2, type = 'l', col='blue', lwd=2)
+```
+
+### d)
+
+Say now that you want to estimate a polynomial regression of order 10, but you suspect that higher order terms may not be needed, and you worry about overfitting the data. Suggest a suitable prior that mitigates this potential problem. You do not need to compute the posterior. Just write down your prior. [Hint: the task is to specify $\mu_0$ and $\Omega_0$ in a suitable way.]
+
+```{r 1d}
+
+```
+
+## 2. Posterior approximation for classification with logistic regression
+
+The dataset WomenAtWork.dat contains n = 132 observations on the following eight
+variables related to women (see table in lab compendium).
+
+### a)
+
+Consider the logistic regression model: 
+
+$$Pr(y=1|x,\beta)=\frac{exp(x^T\beta)}{1+\exp(x^T\beta)},$$ where y equals 1 if the woman works and 0 if she does not. x is a 7-dimensional vector containing the seven features (including a 1 to model the intercept).
+The goal is to approximate the posterior distribution of the parameter vector
+$\beta$ with a multivariate normal distribution $$\beta|y,x \sim N (\tilde\beta, J_y^{-1}(\tilde\beta)),$$ where $\tilde\beta$ is the posterior mode and $J_y^{-1} = -\frac{complete}{later}$ is the negative of the observed Hessian evaluated at the posterior mode. Note that $\frac{complete}{later}$ is a 7*7 matrix with second derivatives on the diagonal and cross derivatives $insert eq$ on the off-diagonal. You can compute this derivative by hand, but we will let the computer do it numerically for you. Calculate both $\tilde\beta$ and $J(\tilde\beta)$ by using the optim function in R. [Hint: You may use code snippets from my
+demo of logistic regression in Lecture 6.] Use the prior $beta \sim N(0,\tau^2I)$, where $\tau = 2$.
+
+Present the numerical values of $\tilde\beta$ and $J^{-1}_y(\tilde\beta)$ for the WomenAtWork data. Compute an approximate 95% equal tail posterior probability interval for the regression coefficient to the variable NSmallChild. Would you say that this feature is of importance for the probability that a woman works?
+[Hint: You can verify that your estimation results are reasonable by comparing the posterior means to the maximum likelihood estimates, given by: r glmModel<- glm(Work ~ 0 + ., data = WomenAtWork, family = binomial).]
+
+```{r 2a}
+Covs <- c(2:8) # Select which covariates/features to include
+standardize <- FALSE # If TRUE, covariates/features are standardized to mean 0 and variance 1
+lambda <- 1 # scaling factor for the prior of beta 
+tau <- 2
+# Loading wine quality data set (https://archive.ics.uci.edu/ml/datasets/Wine+Quality)
+WomenData <- read.table("WomenAtWork.dat", header = T) # read data from file
+Nobs <- dim(WomenData)[1] # number of observations
+y <- WomenData$Work
+
+X <- as.matrix(WomenData[,Covs]);
+Xnames <- colnames(X)
+if (standardize){
+  Index <- 2:(length(Covs)-1)
+  X[,Index] <- scale(X[,Index])
+}
+Npar <- dim(X)[2]
+
+# Setting up the prior
+mu <- as.matrix(rep(0,Npar)) # Prior mean vector
+Sigma <- (1/lambda)*(tau^2)*diag(Npar) # Prior covariance matrix
+
+# Functions that returns the log posterior for the logistic and probit regression.
+# First input argument of this function must be the parameters we optimize on, 
+# i.e. the regression coefficients beta.
+
+LogPostLogistic <- function(betas,y,X,mu,Sigma){
+  linPred <- X%*%betas;
+  logLik <- sum( linPred*y - log(1 + exp(linPred)) );
+  #if (abs(logLik) == Inf) logLik = -20000; # Likelihood is not finite, stear the optimizer away from here!
+  logPrior <- dmvnorm(betas, mu, Sigma, log=TRUE);
+  
+  return(logLik + logPrior)
+}
+
+# Select the initial values for beta
+initVal <- matrix(0,Npar,1)
+
+# The argument control is a list of options to the optimizer optim, where fnscale=-1 means that we minimize 
+# the negative log posterior. Hence, we maximize the log posterior.  
+OptimRes <- optim(initVal,LogPostLogistic,gr=NULL,y,X,mu,Sigma,method=c("BFGS"),control=list(fnscale=-1),hessian=TRUE)
+
+# Printing the results to the screen
+names(OptimRes$par) <- Xnames # Naming the coefficient by covariates
+approxPostStd <- sqrt(diag(solve(-OptimRes$hessian))) # Computing approximate standard deviations.
+names(approxPostStd) <- Xnames # Naming the coefficient by covariates
+print('The posterior mode is:')
+print(OptimRes$par)
+print('The approximate posterior standard deviation is:')
+print(approxPostStd)
+
+print("GLM")
+glmModel <- glm(Work ~ 0 + ., data = WomenData, family = binomial)
+print(glmModel)
+
+```
+
+NSmallChild has the biggest absolute value out of all the posterior means, hense it is the feature with the most importance for the probability that a woman works.
+
+### b)
+
+Use your normal approximation to the posterior from (a). Write a function that simulate draws from the posterior predictive distribution of $Pr(y = 0|x)$, where the values of x corresponds to a 40-year-old woman, with two children (4 and 7 years old), 11 years of education, 7 years of experience, and a husband with an income of 18. Plot the posterior predictive distribution of $Pr(y = 0|x)$ for this woman.
+[Hints: The R package mvtnorm will be useful. Remember that $Pr(y = 0|x)$ can be calculated for each posterior draw of $\beta$ .]
+
+```{r 2b}
+
+```
+
+### c)
+
+Now, consider 13 women which all have the same features as the woman in
+(b). Rewrite your function and plot the posterior predictive distribution for
+the number of women, out of these 13, that are not working. [Hint: Simulate
+from the binomial distribution, which is the distribution for a sum of Bernoulli
+random variables.]
+
+```{r 2c}
+
+```
+
