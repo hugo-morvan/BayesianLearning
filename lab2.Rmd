@@ -9,6 +9,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = TRUE)
 ```
 
 ## Linear and polynomial regression
@@ -259,6 +260,22 @@ Use your normal approximation to the posterior from (a). Write a function that s
 [Hints: The R package mvtnorm will be useful. Remember that $Pr(y = 0|x)$ can be calculated for each posterior draw of $\beta$ .]
 
 ```{r 2b}
+SimulatePostPred <- function(Nsim,OptimRes,X){
+  Npar <- dim(X)[2]
+  postMean <- OptimRes$par #Posterior mean
+  postCov <- solve(-OptimRes$hessian) #Posterior covariance matrix
+  postDraws <- rmvnorm(Nsim, postMean, postCov) #Draws from the posterior
+  postPred <- rep(0,Nsim)
+  for (i in 1:Nsim){
+    postPred[i] <- 1/(1+exp(-X%*%postDraws[i,])) # Pr(y=0|x) 
+  }
+  return(postPred)
+}
+
+Nsim <- 10000
+x <- c(1, 18, 11, 7, 40, 1, 1)
+postPred <- SimulatePostPred(Nsim,OptimRes,x)
+hist(postPred,main="Posterior predictive distribution of Pr(y=0|x)",xlab="Pr(y=0|x)",ylab="Frequency",breaks=30)
 
 ```
 
@@ -271,6 +288,22 @@ from the binomial distribution, which is the distribution for a sum of Bernoulli
 random variables.]
 
 ```{r 2c}
+SimulatePostPredBin <- function(Nsim,OptimRes,X,Nwomen){
+  Npar <- dim(X)[2]
+  postMean <- OptimRes$par #Posterior mean
+  postCov <- solve(-OptimRes$hessian) #Posterior covariance matrix
+  postDraws <- rmvnorm(Nsim, postMean, postCov) #Draws from the posterior
+  postPred <- rep(0,Nsim)
+  for (i in 1:Nsim){
+    postPred[i] <- rbinom(1, Nwomen, 1/(1+exp(-X%*%postDraws[i,]))) # Pr(y=0|x) 
+  }
+  return(postPred)
+}
+
+Nsim <- 10000
+Nwomen <- 13
+postPred <- SimulatePostPredBin(Nsim,OptimRes,x,Nwomen)
+hist(postPred,main="Posterior predictive distribution of number of women not working",xlab="Number of women",ylab="Frequency")
 
 ```
 
