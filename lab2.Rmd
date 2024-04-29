@@ -90,6 +90,8 @@ for(i in 1:1000){
 
 ```
 
+The collection of curves looks reasonable for most of the data. Only the beginning of the year is not well represented by the prior, but it is hard to find a prior that fits the data perfectly.
+
 
 ### b) 
 
@@ -119,7 +121,7 @@ for(i in 1:1000){
 Plot a histogram for each marginal posterior of the parameters.
 
 ```{r 1b}
-#plot a histogram for each marginal posterior of the parameters
+#histogram for each marginal posterior of the parameters
 hist(beta_draws_post[,1], main="Beta 0", xlab="Value")
 hist(beta_draws_post[,2], main="Beta 1", xlab="Value")
 hist(beta_draws_post[,3], main="Beta 2", xlab="Value")
@@ -131,13 +133,13 @@ hist(sigsq_draw_post, main="Sigma^2", xlab="Value")
 Make a scatter plot of the temperature data and overlay a curve for the posterior median of the regression function $f(time) = E[temp|time] = \beta_0 + \beta_1 * time + \beta_2 * time^2$, i.e. the median of f (time) is computed for every value of time. In addition, overlay curves for the 90% equal tail posterior probability intervals of f (time), i.e. the 5 and 95 posterior percentiles of f (time) is computed for every value of time. Does the posterior probability intervals contain most of the data points? Should they?
 
 ```{r 1b2}
-#Scatter plot of the temperature data and overlay a curve for the posterior median of the regression function
+#Scatter plot of the temperature data + curve for the posterior median of the regression function
 plot(time, data$temp, type = 'p', xlab="Day of year ratio", ylab = "Temperature")
 #Mean
 betas_mean = colMeans(beta_draws_post)
 lines(time, betas_mean[1] + betas_mean[2]*time + betas_mean[3]*time^2, type = 'l', col='blue', lwd=2)
 
-#Calculate the 5 and 95 percentiles for each beta for each time
+#5 and 95 percentiles for each beta for each time
 betas_5 = c(quantile(beta_draws_post[,1], 0.05),
             quantile(beta_draws_post[,2], 0.05),
             quantile(beta_draws_post[,3], 0.05))
@@ -148,11 +150,17 @@ betas_95 = c(quantile(beta_draws_post[,1], 0.95),
 
 lines(time, betas_5[1] + betas_5[2]*time + betas_5[3]*time^2, type = 'l', col='red', lty=2, lwd=2)
 lines(time, betas_95[1] + betas_95[2]*time + betas_95[3]*time^2, type = 'l', col='red', lty=2, lwd=2)
+legend("topright", legend=c("Posterior Mean", "5% and 95%"), col=c("blue", "red"), lty=c(1,2), 
+       lwd=c(2,2))
 ```
+
+The posterior probability intervals contain most of the data points, but they are not perfect. They should contain most of the data points if the temperature in a year followed our model, which is a quadratic polynomial. However, the reality is different so it is not surprising that the intervals do not contain all the data points, especially where the data is noisy.
 
 ### c)
 
 It is of interest to locate the time with the highest expected temperature (i.e. the time where f (time) is maximal). Let's call this value $\tilde x$. Use the simulated draws in (b) to simulate from the posterior distribution of $\tilde x$. [Hint: the regression curve is a quadratic polynomial. Given each posterior draw of $\beta_0$, $\beta_1$ and $\beta_2$ , you can find a simple formula for $\tilde x$.]
+
+To find the maximum of a quadratic polynomial, we can use the formula $x = -\frac{\beta_1}{2\beta_2}$ which is the maximum of the quadratic polynomial $f(x) = \beta_0 + \beta_1x + \beta_2x^2$ (derivative of f(x) equal to 0). We can use this formula to find the maximum temperature for each draw of $\beta_0$, $\beta_1$ and $\beta_2$ and simulate the posterior distribution of $\tilde x$, and also calculate the mean of these maximum temperatures.
 
 ```{r 1c}
 max_temp <- function(betas){
@@ -163,10 +171,15 @@ for(i in 1:365){
   betas = beta_draws_post[i,]
   x_maxs = rbind(x_maxs, max_temp(betas))
 }
+hist(x_maxs, main="Posterior distribution of x_tilde", xlab="Value", ylab="Frequency", breaks=30)
+
 x_tilde = mean(x_maxs)
-print(paste("x_tilde is",x_tilde))
+print(paste("E[x_tilde] is",x_tilde))
+
 plot(time, data$temp, type = 'p', xlab="Day of year ratio", ylab = "Temperature")
-abline(v=x_tilde)
+abline(v=x_tilde, col='red', lty=2)
+legend("topright", legend=c("E[x_tilde]", "Posterior mean"), col=c("red","blue"), 
+       lty=c(2,1), cex=c(0.8,0.8))
 lines(time, betas_mean[1] + betas_mean[2]*time + betas_mean[3]*time^2, type = 'l', col='blue', lwd=2)
 ```
 
@@ -174,7 +187,51 @@ lines(time, betas_mean[1] + betas_mean[2]*time + betas_mean[3]*time^2, type = 'l
 
 Say now that you want to estimate a polynomial regression of order 10, but you suspect that higher order terms may not be needed, and you worry about overfitting the data. Suggest a suitable prior that mitigates this potential problem. You do not need to compute the posterior. Just write down your prior. [Hint: the task is to specify $\mu_0$ and $\Omega_0$ in a suitable way.]
 
+Because we suspect that higher order terms may not be needed (the data seems to follow a quadratic path), and it might cause overfitting, a prior that has null/close to null mean for higher order terms, and a small variance (high omegas) is suggested. This way, the higher order terms will not have a big impact on the model. We keep the mean of the first three terms the same as before, as the previous questions showed that the quadratic polynomial is a good fit for most of the data. The posterior is recalculated for sanity check.
+
 ```{r 1d}
+# Initializing the parameters
+
+##### MODIFIED #######
+mu_0 = c(-10,87,-78, -5, 0, 0, 0, 0, 0, 0, 0) #(y, beta_0, ..., beta_9)
+Omega_0 = diag(c(rep(0.01,4), rep(100,7))) # Small variance (high omega) for higher order terms
+######################
+
+nu_0 = 3 #Vertical thickness (higher = thicker)
+sigma_sq_0 = 4 #vertical thickness (higher = thicker)
+n = 365 
+
+X = matrix(c(time*0+1, time, time*time), ncol=3)
+y = data$temp
+
+#Prior
+sigsq_draws_prior = as.matrix((nu_0*sigma_sq_0) / rchisq(1000, n-1))
+
+########## MODIFIED ##########
+beta_draws_prior = matrix(NA,nrow=0, ncol=11)
+##############################
+
+for(i in (1:length(sigsq_draws_prior))){
+  sig = sigsq_draws_prior[i]
+  beta_draws_prior = rbind(beta_draws_prior,rmvnorm(n = 1, mean = mu_0, sigma = sig*solve(Omega_0)))
+}
+
+#Plot
+########## MODIFIED ##########
+f = function(x,betas,sigsq){
+  betas[1] + betas[2]*x + betas[3]*x^2 + betas[4]*x^3 + betas[5]*x^4 + betas[6]*x^5 + betas[7]*x^6 + betas[8]*x^7 + betas[9]*x^8 + betas[10]*x^9 + rnorm(1, 0, sigsq)
+}
+##############################
+
+x = time
+betas = beta_draws_prior[1,]
+plot(x, y, type = 'l', xlab="Day of year ratio", ylab = "Temperature")
+for(i in 1:1000){
+  x = time
+  betas = beta_draws_prior[i,]
+  sigsq = sigsq_draws_prior[i,]
+  lines(x, f(x, betas, sigsq), type = 'l', col=alpha('darkgreen', 0.1))
+}
 
 ```
 
@@ -196,14 +253,16 @@ Present the numerical values of $\tilde\beta$ and $J^{-1}_y(\tilde\beta)$ for th
 [Hint: You can verify that your estimation results are reasonable by comparing the posterior means to the maximum likelihood estimates, given by: r glmModel<- glm(Work ~ 0 + ., data = WomenAtWork, family = binomial).]
 
 ```{r 2a}
-Covs <- c(2:8) # Select which covariates/features to include
+# Template code from Lecture material, modified for the WomenAtWork data set:
+
+Covs <- c(2:8) # Selects which covariates/features to include
 standardize <- FALSE # If TRUE, covariates/features are standardized to mean 0 and variance 1
 lambda <- 1 # scaling factor for the prior of beta 
 tau <- 2
-# Loading wine quality data set (https://archive.ics.uci.edu/ml/datasets/Wine+Quality)
-WomenData <- read.table("WomenAtWork.dat", header = T) # read data from file
+
+WomenData <- read.table("WomenAtWork.dat", header = T) # read data from .dat file
 Nobs <- dim(WomenData)[1] # number of observations
-y <- WomenData$Work
+y <- WomenData$Work 
 
 X <- as.matrix(WomenData[,Covs]);
 Xnames <- colnames(X)
@@ -221,38 +280,41 @@ Sigma <- (1/lambda)*(tau^2)*diag(Npar) # Prior covariance matrix
 # First input argument of this function must be the parameters we optimize on, 
 # i.e. the regression coefficients beta.
 
+# Log posterior for logistic regression
 LogPostLogistic <- function(betas,y,X,mu,Sigma){
   linPred <- X%*%betas;
   logLik <- sum( linPred*y - log(1 + exp(linPred)) );
-  #if (abs(logLik) == Inf) logLik = -20000; # Likelihood is not finite, stear the optimizer away from here!
+  #if (abs(logLik) == Inf) logLik = -20000; # Likelihood is not finite, 
+  # stear the optimizer away from here!
   logPrior <- dmvnorm(betas, mu, Sigma, log=TRUE);
-  
-  return(logLik + logPrior)
+  #posterior = likelihood*prior, log posterior = log likelihood + log prior
+  return(logLik + logPrior) 
 }
 
 # Select the initial values for beta
 initVal <- matrix(0,Npar,1)
 
-# The argument control is a list of options to the optimizer optim, where fnscale=-1 means that we minimize 
-# the negative log posterior. Hence, we maximize the log posterior.  
-OptimRes <- optim(initVal,LogPostLogistic,gr=NULL,y,X,mu,Sigma,method=c("BFGS"),control=list(fnscale=-1),hessian=TRUE)
+# The argument control is a list of options to the optimizer optim, where fnscale=-1
+# means that we minimize the negative log posterior. Hence, we maximize the log posterior.  
+OptimRes <- optim(initVal,LogPostLogistic,gr=NULL,y,X,mu,Sigma,method=c("BFGS"),
+                  control=list(fnscale=-1),hessian=TRUE)
 
 # Printing the results to the screen
 names(OptimRes$par) <- Xnames # Naming the coefficient by covariates
 approxPostStd <- sqrt(diag(solve(-OptimRes$hessian))) # Computing approximate standard deviations.
 names(approxPostStd) <- Xnames # Naming the coefficient by covariates
-print('The posterior mode is:')
+print('---- The posterior mode is: ----')
 print(OptimRes$par)
-print('The approximate posterior standard deviation is:')
+print('---- The approximate posterior standard deviation is: ----')
 print(approxPostStd)
 
-print("GLM")
 glmModel <- glm(Work ~ 0 + ., data = WomenData, family = binomial)
+print("---- comparing with GLM ----")
 print(glmModel)
 
 ```
 
-NSmallChild has the biggest absolute value out of all the posterior means, hense it is the feature with the most importance for the probability that a woman works.
+NSmallChild has the biggest absolute value out of all the posterior means, hence it is the feature with the most importance for the probability that a woman works.
 
 ### b)
 
@@ -273,9 +335,10 @@ SimulatePostPred <- function(Nsim,OptimRes,X){
 }
 
 Nsim <- 10000
-x <- c(1, 18, 11, 7, 40, 1, 1)
+x <- c(1, 18, 11, 7, 40, 1, 1) #cst, HusbandIncome, Education, Experience, Age, NSmallChild, NBigChild
 postPred <- SimulatePostPred(Nsim,OptimRes,x)
-hist(postPred,main="Posterior predictive distribution of Pr(y=0|x)",xlab="Pr(y=0|x)",ylab="Frequency",breaks=30)
+hist(postPred,main="Posterior predictive distribution of Pr(y=0|x)",xlab="Pr(y=0|x)",ylab="Frequency",
+     breaks=30)
 
 ```
 
@@ -295,7 +358,7 @@ SimulatePostPredBin <- function(Nsim,OptimRes,X,Nwomen){
   postDraws <- rmvnorm(Nsim, postMean, postCov) #Draws from the posterior
   postPred <- rep(0,Nsim)
   for (i in 1:Nsim){
-    postPred[i] <- rbinom(1, Nwomen, 1/(1+exp(-X%*%postDraws[i,]))) # Pr(y=0|x) 
+    postPred[i] <- rbinom(1, Nwomen, 1 -1/(1+exp(-X%*%postDraws[i,]))) # Pr(y=0|x) = 1 - Pr(y=1|x)
   }
   return(postPred)
 }
@@ -303,7 +366,8 @@ SimulatePostPredBin <- function(Nsim,OptimRes,X,Nwomen){
 Nsim <- 10000
 Nwomen <- 13
 postPred <- SimulatePostPredBin(Nsim,OptimRes,x,Nwomen)
-hist(postPred,main="Posterior predictive distribution of number of women not working",xlab="Number of women",ylab="Frequency")
+hist(postPred,main="Posterior predictive distribution of number of women not working",
+     xlab="Number of women",ylab="Frequency")
 
 ```
 
