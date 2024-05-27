@@ -329,7 +329,7 @@ SimulatePostPred <- function(Nsim,OptimRes,X){
   postDraws <- rmvnorm(Nsim, postMean, postCov) #Draws from the posterior
   postPred <- rep(0,Nsim)
   for (i in 1:Nsim){
-    postPred[i] <- 1/(1+exp(-X%*%postDraws[i,])) # Pr(y=0|x) 
+    postPred[i] <- 1/(1+exp(X%*%postDraws[i,])) # Pr(y=0|x) 
   }
   return(postPred)
 }

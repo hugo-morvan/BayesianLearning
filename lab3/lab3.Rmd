@@ -4,7 +4,7 @@ author: "Hugo Morvan"
 date: "`r Sys.Date()`"
 output: pdf_document
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -18,10 +18,90 @@ Consider again the logistic regression model in problem 2 from the previous comp
 
 ## a)
 
-Implement (code!) a Gibbs sampler that simulates from the joint posterior $p(\omega, \beta|x)$ by augmenting the data with Polya-gamma latent variables $\omega_i$ , i = 1,..., n. The full conditional posteriors are given on the slides from Lecture 7.
-Evaluate the convergence of the Gibbs sampler by calculating the Inefficiency Factors (IFs) and by plotting the trajectories of the sampled Markov chains.
+Implement (code!) a Gibbs sampler that simulates from the joint posterior $p(\omega, \beta|x)$ by augmenting the data with Polya-gamma latent variables $\omega_i$ , i = 1,..., n. The full conditional posteriors are given on the slides from Lecture 7. Evaluate the convergence of the Gibbs sampler by calculating the Inefficiency Factors (IFs) and by plotting the trajectories of the sampled Markov chains.
+
+From the lecture: Gibbs sampling for the Logistic regression:
+
+Given $\omega = (\omega_1, \omega_2, ..., \omega_n)$, the conditional posterior of $\beta$ with prior $\beta \sim N(b,B)$ follows a multivariate normal distribution. $\omega$ is not observed --\> Gibbs sampling to the rescue. Simulate from the joint posterior $p(\omega, \beta|y)$ by iterating between :
+
+-   $\omega_i|\beta \sim PG(1, x_i^T\beta)$, i = 1...n
+-   $$\beta|y, \omega \sim N(m_{\omega}, V_{\omega})$$, $$V_{\omega} = (X^T\Omega X + B^{-1})^{-1}$$,$$m_{\omega}= V_{\omega}(X^T \kappa+B^{-1}b)$$,
+
+where $\kappa = (y_i-0.5, ..., y_n-0.5)$, $\Omega$ is the diagonal matrix of $\omega_i's$ and $PG(1,x_i^T\beta)$ is the poly-gamma sampler from the BayesLogit R package.
+
+From Lecture 7 slide 23:
+
+Logistic regression: $$Pr(y_i=1|x_i,\beta) = \frac{exp(x_i^T \beta)}{1+exp(x_i^T\beta)}$$
+
+The posterior distribution is not known. Augment the data with Polya-gamma latent variables $\omega_i$ , i=1,...,n. $$\omega_i = \frac{1}{2*\pi^2}*\sum_{k=1}^{\infty}\frac{g_k}{(k-0.5)^2+\frac{(x_i^T\beta)^2}{4\pi^2}}$$, where $g_k$ are independent draws from the exponential distribution with mean 1.
 
 ```{r 1a}
+library(BayesLogit)
+library(mvtnorm)
+
+WomenData <- read.table("WomenAtWork.dat", header = T) # read data from .dat file
+Nobs <- dim(WomenData)[1] # number of observations
+y <- WomenData$Work 
+
+Covs <- c(2:8) # Selects which covariates/features to include
+X <- as.matrix(WomenData[,Covs]);
+Xnames <- colnames(X)
+nPar <- dim(X)[2] #7
+
+# Setting up the prior
+
+nDraws = 1000
+
+tau <- 3
+b = as.matrix(rep(0,nPar)) # Prior mean vector, needed to calculate m_omega
+B = tau^2*diag(nPar) #Needed to calculate V_omega and m_omega, prior covariance matrix
+kappa <- as.matrix(y-0.5) #Needed to calculate m_omega
+
+omega_i_given_beta = matrix(0, nrow = nrow(X), ncol=nDraws)
+
+betas = matrix(nrow=nDraws, ncol=nPar)
+betas[1,] = rep(1,nPar) # Initial betas values, should it be from N(b,B) ?
+
+for(draw in 2:nDraws){ #Start at 2 because we have set 1 above
+  
+  #First, augment the data with Poly-gamma latent variables
+  for(row in 1:nrow(X)){
+    omega_i_given_beta[row, draw-1] = rpg(1, h=1, X[row,]%*%betas[draw-1,])
+  }
+  #Omega is the diagonal matrix of the omega_i's
+  Omega = diag(omega_i_given_beta[,draw-1])
+  # Calculate V_omega and m_omega, 
+  V_omega = solve(t(X) %*% Omega %*% X + solve(B))
+  m_omega = V_omega%*%(t(X) %*% kappa + solve(B) %*% b)
+  
+  #Finally, calculate beta given y and omega
+  betas[draw,] = rmvnorm(1, m_omega, V_omega)
+}
+
+#Inefficency Factor
+IF_Gibbs = c(rep(0,7))
+for(beta in 1:7){
+  IF_Gibbs[beta] = 1+2*colSums(colSums(acf(betas[-1,beta], plot=FALSE)$acf))
+}
+for(i in 1:7){
+  print(paste("IF for ", Xnames[i], " : ", IF_Gibbs[i]))
+}
+```
+
+Plotting the trajectories of the sampled Markov chains in black with the cumulative mean in red for each of the 7 parameters:
+
+```{r 1a-2}
+#Plotting the trajectories + cummulative sums of the sampled Markov chains
+cumsumData = matrix(nrow=nDraws, ncol=nPar) 
+for(i in 1:nPar){
+  cumsumData[,i] = cumsum(betas[,i])/seq(1,nDraws)
+}
+par(mar=c(2,2,2,1))
+par(mfrow=c(4,2))
+for (i in 1:7){
+  plot(1:nDraws, betas[,i], type = "l", main=Xnames[i])
+  lines(1:nDraws, cumsumData[,i],type="l", col="red")
+}
 
 ```
 
@@ -31,9 +111,23 @@ Evaluate the convergence of the Gibbs sampler by calculating the Inefficiency Fa
 Use the posterior draws from a) to compute a 90% equal tail credible interval for Pr(y = 1|x), where the values of x corresponds to a 38-year-old woman, with one child (3 years old), 12 years of education, 7 years of experience, and a husband with an income of 22. A 90% equal tail credible interval (a, b) cuts off 5% percent of the posterior probability mass to the left of a, and 5% to the right of b.
 
 ```{r 1b}
+#New data
+#Constant,  HusbandIncome, EducYears, ExpYears, Age, NSmallCHild, NBigChild
+x = c(1, 22, 12, 7, 38, 1, 0)
+Pr_y1 = matrix(nrow=nDraws, ncol=1)
+for(draw in 1:nDraws){
+  Pr_y1[draw] = exp(t(x)%*%betas[draw,])/(1+exp(t(x)%*%betas[draw,]))
+}
+
+hist(Pr_y1, breaks=50, main="Posterior distribution of Pr(y=1|x)", xlab="Pr(y=1|x)")
+abline(v=quantile(Pr_y1, c(0.05, 0.95)), col="red")
+abline(v=mean(Pr_y1), col="blue")
+legend("topright", legend=c("Mean", "90% Credible Interval"), col=c("blue", "red"), lty=1:1)
+print(quantile(Pr_y1, c(0.05, 0.95)))
+print(mean(Pr_y1))
+
 
 ```
-
 
 # 2. Metropolis Random Walk for Poisson regression
 
@@ -43,58 +137,177 @@ $$y_i |\beta \sim^{iid} Poisson[exp( x^T_i \beta)] , i = 1,..., n,$$
 
 where $y_i$ is the count for the ith observation in the sample and $x_i$ is the p-dimensional vector with covariate observations for the ith observation. Use the data set eBayNumberOfBidderData_2024.dat. This dataset contains observations from 800 eBay auctions of coins. The response variable is **nBids** and records the number of bids in each auction. The remaining variables are features/covariates (**x**):
 
-- **Const** (for the intercept)
-- **PowerSeller** (equal to 1 if the seller is selling large volumes on eBay)
-- **VerifyID** (equal to 1 if the seller is a veriffed seller by eBay)
-- **Sealed** (equal to 1 if the coin was sold in an unopened envelope)
-- **MinBlem** (equal to 1 if the coin has a minor defect)
-- **MajBlem** (equal to 1 if the coin has a major defect)
-- **LargNeg** (equal to 1 if the seller received a lot of negative feedback from customers)
-- **LogBook** (logarithm of the book value of the auctioned coin according to expert sellers. Standardized)
-- **MinBidShare** (ratio of the minimum selling price (starting price) to the book value. Standardized).
-
+-   **Const** (for the intercept)
+-   **PowerSeller** (equal to 1 if the seller is selling large volumes on eBay)
+-   **VerifyID** (equal to 1 if the seller is a veriffed seller by eBay)
+-   **Sealed** (equal to 1 if the coin was sold in an unopened envelope)
+-   **MinBlem** (equal to 1 if the coin has a minor defect)
+-   **MajBlem** (equal to 1 if the coin has a major defect)
+-   **LargNeg** (equal to 1 if the seller received a lot of negative feedback from customers)
+-   **LogBook** (logarithm of the book value of the auctioned coin according to expert sellers. Standardized)
+-   **MinBidShare** (ratio of the minimum selling price (starting price) to the book value. Standardized).
 
 ## a)
 
 Obtain the maximum likelihood estimator of $\beta$ in the Poisson regression model for the eBay data [Hint: glm.R, don't forget that glm() adds its own intercept so don't input the covariate Const]. Which covariates are signifficant?
 
 ```{r 2a}
+ebayData <- read.table("eBayNumberOfBidderData_2024.dat", header = T)
+y <- ebayData$nBids
+X <- as.matrix(ebayData[,-1])
+Xnames <- colnames(X)
+
+glmFit <- glm(y ~ X - 1, family = poisson)
+summary(glmFit)
 
 ```
+
+The covariates XConst, XVerifyID, XSealed, XMajBlem, XLogBook and XMinBidShare are significant at the 95% level.
 
 ## b)
 
-Let's do a Bayesian analysis of the Poisson regression. Let the prior be $\beta \sim N[0,100*(X^T X)^{-1}$ , where X is the n * p covariate matrix. This is a commonly used prior, which is called Zellner's g-prior. Assume first that the posterior density is approximately multivariate normal:
+Let's do a Bayesian analysis of the Poisson regression. Let the prior be $\beta \sim N[0,100*(X^T X)^{-1}$ , where X is the n \* p covariate matrix. This is a commonly used prior, which is called Zellner's g-prior. Assume first that the posterior density is approximately multivariate normal:
 
-$$\beta|y \sim N [\tilde\beta, J_y^{-1}(\tilde\beta)]$$,
-where $\tilde\beta$ is the posterior mode and $J_y(\tilde\beta)$ is the negative Hessian at the posterior mode. $\tilde\beta$ and $J_y(\tilde\beta)$  can be obtained by numerical optimization (optim.R) exactly like you already did for the logistic regression in Lab 2 (but with the log posterior function replaced by the corresponding one for the Poisson model, which you have to code up.).
+$$\beta|y \sim N [\tilde\beta, J_y^{-1}(\tilde\beta)]$$, where $\tilde\beta$ is the posterior mode and $J_y(\tilde\beta)$ is the negative Hessian at the posterior mode. $\tilde\beta$ and $J_y(\tilde\beta)$ can be obtained by numerical optimization (optim.R) exactly like you already did for the logistic regression in Lab 2 (but with the log posterior function replaced by the corresponding one for the Poisson model, which you have to code up.).
 
 ```{r 2b}
+# Prior
+n = nrow(X)
+p = ncol(X)
 
+mu <- as.matrix(rep(0,p))
+Sigma <- as.matrix(100 * solve(t(X) %*% X) )
+betas = as.matrix(rep(0,p)) #Initialized to zero
+
+posterior_function <- function(betas, y, X,  mu, Sigma){ 
+  #Note to self: parameter to be optim is the first argument
+  linearPredictor <- X %*% betas;
+  logLik <- sum( linearPredictor*y - exp(linearPredictor) )
+  logPrior <- dmvnorm(betas, mu, Sigma, log=TRUE);
+  return(logLik + logPrior)
+}
+
+OptimRes <- optim(par = betas, fn = posterior_function, gr=NULL, y, X, mu, Sigma,
+                  method=c("BFGS"),control=list(fnscale=-1),hessian=TRUE)
+
+# Printing the results to the screen
+names(OptimRes$par) <- Xnames # Naming the coefficient by covariates
+approxPostStd <- sqrt(diag(solve(-OptimRes$hessian))) # Computing approximate standard deviations.
+names(approxPostStd) <- Xnames # Naming the coefficient by covariates
+cat('---- The posterior mode is: ----\n')
+print(OptimRes$par[1:9])
+cat('\n---- The approximate posterior standard deviation is: ----\n')
+print(approxPostStd)
+
+cat("\n---- comparing with GLM: ----\n")
+coef(glmFit)
 ```
-
 
 ## c)
 
 Let's simulate from the actual posterior of $\beta$ using the Metropolis algorithm and compare the results with the approximate results in b). Program a general function that uses the Metropolis algorithm to generate random draws from an arbitrary posterior density. In order to show that it is a general function for any model, we denote the vector of model parameters by $\theta$. Let the proposal density be the multivariate normal density mentioned in Lecture 8 (random walk Metropolis):
 
-$$\theta_p |\theta^{(i-1)} \sim N[\theta^{(i-1)} , c*\Sigma] $$,
-where $\Sigma = J_y^{-1}(\tilde\beta)$ was obtained in b). The value c is a tuning parameter and should be an input to your Metropolis function. The user of your Metropolis function should be able to supply her own posterior density function, not necessarily for the Poisson regression, and still be able to use your Metropolis function. This is not so straightforward, unless you have come across function objects in R. The note HowToCodeRWM.pdf in Lisam describes how you can do this in R.
+$$\theta_p |\theta^{(i-1)} \sim N[\theta^{(i-1)} , c*\Sigma] $$, where $\Sigma = J_y^{-1}(\tilde\beta)$ was obtained in b). The value c is a tuning parameter and should be an input to your Metropolis function. The user of your Metropolis function should be able to supply her own posterior density function, not necessarily for the Poisson regression, and still be able to use your Metropolis function. This is not so straightforward, unless you have come across function objects in R. The note HowToCodeRWM.pdf in Lisam describes how you can do this in R.
 
 Now, use your new Metropolis function to sample from the posterior of $\beta$ in the Poisson regression for the eBay dataset. Assess MCMC convergence by graphical methods.
+
+```{r 2c}
+
+# Metropolis function
+Metropolis <- function(n, theta0, posterior_function, c, y, X, mu, Sigma){
+  # n: number of iterations
+  # theta0: initial value of theta
+  # posterior_function: function that returns the log posterior
+  # c: tuning parameter
+  # y: response variable
+  # X: covariate matrix
+  # mu: prior mean
+  # Sigma: prior covariance matrix
+  
+  p = length(theta0)
+  theta = matrix(NA, nrow = n, ncol = p)
+  theta[1,] = theta0
+  accepted = 0
+  for(i in 2:n){
+    theta_prop = rnorm(p, theta[i-1,], diag(c*Sigma))
+    logR = posterior_function(theta_prop, y, X, mu, Sigma) - posterior_function(theta[i-1,], y, X, mu, Sigma)
+    if(log(runif(1)) < logR){
+      theta[i,] = theta_prop
+      accepted = accepted + 1
+    } else {
+      theta[i,] = theta[i-1,]
+    }
+  }
+  print(paste("Acceptance rate: ", accepted/n))
+  return(theta)
+}
+
+#Simulating from the posterior
+n = 40000
+c = 0.03
+theta0 = OptimRes$par
+posterior_function <- function(betas, y, X,  mu, Sigma){ 
+  #Note to self: parameter to be optim is the first argument
+  linearPredictor <- X %*% betas;
+  logLik <- sum( linearPredictor*y - exp(linearPredictor) )
+  logPrior <- dmvnorm(betas, mu, Sigma, log=TRUE);
+  return(logLik + logPrior)
+}
+
+thetas = Metropolis(n, theta0, posterior_function, c, y, X, mu, Sigma)
+
+#Assessing convergence
+par(mar=c(1,2,3,1))
+par(mfrow=c(3,3))
+for(i in 1:p){
+  plot(thetas[,i], type = "l", main = Xnames[i])
+}
+cummean <- function(x){
+  cumsum(x) / seq_along(x)
+}
+
+#Plot the cumulative mean
+for (i in 1:p){
+  plot(cummean(thetas[,i]), type="l", main = Xnames[i], las=1)
+}
+
+```
 
 ## d)
 
 Use the MCMC draws from c) to simulate from the predictive distribution of the number of bidders in a new auction with the characteristics below. Plot the predictive distribution. What is the probability of no bidders in this new auction?
 
-- **PowerSeller** = 1
-- **VerifyID** = 0
-- **Sealed** = 1
-- **MinBlem** = 0
-- **MajBlem** = 1
-- **LargNeg** = 0
-- **LogBook** = 1.2
-- **MinBidShare** = 0.8
+-   **PowerSeller** = 1
+-   **VerifyID** = 0
+-   **Sealed** = 1
+-   **MinBlem** = 0
+-   **MajBlem** = 1
+-   **LargNeg** = 0
+-   **LogBook** = 1.2
+-   **MinBidShare** = 0.8
+
+```{r}
+# New auction
+Xnew = as.matrix(c(1, 0, 1, 0, 1, 0, 1.2, 0.8))
+
+pred = c()
+# Predictive distribution
+for (i in 1:n){
+  lambda = c(pred, exp(Xnew %*% thetas[i,]))
+  pred = append(pred, rpois(1, lambda))
+}
+par(mfrow=c(1,1))
+par(mar=c(2,2,1,1))
+hist(pred, main = "Predictive distribution", xlab = "Number of bidders", ylab = "Frequency", breaks = "Scott")
+axis(1, at = c(1:length(table(pred))), labels = c(1:length(table(pred))))
+#find the unique values in pred
+pred_dist = table(pred)
+print(pred_dist)
+# Probability of no bidders
+prob_no_bidders = pred_dist[1]/sum(pred_dist)
+cat("The probability of no bidders in the new auction is: ", prob_no_bidders)
+
+```
 
 # 3. Time series models in Stan
 
@@ -102,25 +315,65 @@ Use the MCMC draws from c) to simulate from the predictive distribution of the n
 
 Write a function in R that simulates data from the AR(1)-process
 
-$$x_t = \mu + \phi (x_{t-1} - \mu) + \epsilon_t , \epsilon_t \sim N[0, \sigma^2]$$ ,
-for given values of $\mu, \phi$ and $\sigma^2$ . Start the process at $x1 = \mu$ and then simulate values for $x_t$ for t = 2, 3..., T and return the vector $x_{1:T}$ containing all time points. Use $\mu = 9, \sigma^2 = 4$ and T = 250 and look at some different realizations
-(simulations) of $x_{1:T}$ for values of $\phi$ between -1 and 1 (this is the interval
-of $\phi$ where the AR(1)-process is stationary). Include a plot of at least one
-realization in the report. What effect does the value of $\phi$ have on $x_{1:T}$ ?
+$$x_t = \mu + \phi (x_{t-1} - \mu) + \epsilon_t , \epsilon_t \sim N[0, \sigma^2]$$ , for given values of $\mu, \phi$ and $\sigma^2$ . Start the process at $x1 = \mu$ and then simulate values for $x_t$ for t = 2, 3..., T and return the vector $x_{1:T}$ containing all time points. Use $\mu = 9, \sigma^2 = 4$ and T = 250 and look at some different realizations (simulations) of $x_{1:T}$ for values of $\phi$ between -1 and 1 (this is the interval of $\phi$ where the AR(1)-process is stationary). Include a plot of at least one realization in the report. What effect does the value of $\phi$ have on $x_{1:T}$ ?
 
 ```{r 3a}
+set.seed(12345)
+mu = 9
+sig_sq = 4
+T_ = 250
+phis = seq(-1,1,0.2) # -1.0, -0.8, ... 0 ... 0.8, 1.0
+results = matrix(nrow = T_, ncol = length(phis))
+results[1,] = mu #initialise the matrix to mu for t=1 
+
+for (phi in 1:length(phis)){
+  for (t in 2:T_){
+    #Equation : x_t = mu + phi*      (x_t-1 - mu)             + N(0,sig_sq)
+    results[t, phi] = mu + phis[phi]*(results[t-1, phi] - mu) + rnorm(1, 0, sig_sq)
+  }
+}
+#dim(results)
+
+#print(phis[3])
+plot(x = 1:T_, y = results[,11],type='l', col = "blue") #phi = 1.0
+lines(x = 1:T_, y = results[,9], col = 'cyan') #phi = 0.6
+
+lines(x = 1:T_, y = results[,3], col='orange') #phi = -0.6
+lines(x = 1:T_, y = results[,1], col='red') #phi = -1.0
+
+lines(x = 1:T_, y = results[,6], col = 'black') #phi = 0
+legend("topleft", legend=c("Phi = 1.0", "Phi = 0.6","Phi = 0","Phi = -0.6","Phi = -1.0"), col=c("blue","cyan","black", "orange", "red"), lty=c(1,1,1,1,1), cex=c(0.8,0.8,0.8,0.8,0.8))
 
 ```
 
+Phi values closer to 0 seems to concentrate the evolution of $x_{1:T}$ around the starting value of mu = 9. Values of +/- 1.0 does not leads to a convergence.
 
 ## b)
 
 Use your function from a) to simulate two AR(1)-processes, $x_{1:T}$ with $\phi = 0.3$ and $y_{1:T}$ with $\phi = 0.97$. Now, treat your simulated vectors as synthetic data, and treat the values of $\mu, \phi$ and $\sigma^2$ as unknown parameters. Implement Stan-code that samples from the posterior of the three parameters, using suitable non-informative priors of your choice. [Hint: Look at the time-series models examples in the Stan user's guide/reference manual, and note the different parameterization used here.]
 
 ```{r 3b}
+set.seed(123)
+x = rep(0, 250)
+mu = 9
+phi = 0.3
+x[1] = phi
+for (t in 2:T_){
+  #Equation : x_t = mu + phi*(x_t-1 - mu)+ N(0,sig_sq)
+  x[t] = mu + phi*(x[t-1] - mu) + rnorm(1, 0, sig_sq)
+}
 
+y = rep(0, 250)
+phi = 0.97
+y[1] = phi
+for (t in 2:T_){
+  #Equation : x_t = mu + phi*(x_t-1 - mu)+ N(0,sig_sq)
+  y[t] = mu + phi*(y[t-1] - mu) + rnorm(1, 0, sig_sq)
+}
+
+plot(x = 1:T_, y = y ,type='l', col = "blue") #phi = 0.97
+lines(x = 1:T_, y = x , col = 'orange') #phi = 0.3
 ```
-
 
 ### i)
 
@@ -137,4 +390,3 @@ For each of the two data sets, evaluate the convergence of the samplers and plot
 ```{r 3bii}
 
 ```
-
