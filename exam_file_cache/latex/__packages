@@ -1,0 +1,7 @@
+ggplot2
+readxl
+scales
+mvtnorm
+BayesLogit
+StanHeaders
+rstan

@@ -1,2 +1,4 @@
 BayesLogit
 mvtnorm
+StanHeaders
+rstan
